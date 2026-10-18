@@ -10,7 +10,7 @@ description: Configure Linux SSH nodes for Windows Codex desktop and a local HTT
 ## 输入与本机约定
 
 - 把命令当作待解析数据，不执行整段用户字符串。提取 host、user、port；拒绝夹带的 shell 命令、未知选项，必要时澄清。端口必须为 1–65535。
-- 默认本机代理为 `127.0.0.1:7897`、远端入口为 `127.0.0.1:17890`；先实测端口，不凭默认值宣称可用。
+- 本机代理地址和端口必须在当前电脑识别并实测，不默认沿用 `127.0.0.1:7897`。远端回环入口优先使用空闲的 `127.0.0.1:17890`，冲突时先检查归属。
 - 本机为 Windows；个人 SSH 配置为 `$env:USERPROFILE\.ssh\config`。读取已有配置和密钥文件名，绝不输出私钥内容或认证令牌。
 - 优先复用用户 SSH 配置中适用于目标的密钥，检查是否已被新节点接受。没有可用密钥时再生成专用密钥并安装公钥。不可把历史聊天里的密码当新节点通用密码，也不保存密码。
 - 本技能只负责节点接入和桌面会话验证，不查找、克隆、创建或绑定业务项目。无需用户提供项目目录；测试若要求工作目录，使用目标用户主目录，不要求 Git 仓库。
@@ -23,6 +23,17 @@ description: Configure Linux SSH nodes for Windows Codex desktop and a local HTT
 2. 用 BatchMode 与连接超时测试现有密钥。首次主机密钥可按正常首次连接流程处理；已知主机指纹变化必须核实，不能删除 known_hosts 或关闭验证来掩盖。
 3. 用户名固定 root，但不得假设旧节点同 IP 新端口就是相同服务器。用 hostname、实际端口及文件检查辨别；同一 IP 不同端口同时使用时分配不同别名，避免覆盖现有项目绑定。若明确替换旧端口，备份并更新对应条目。
 4. 检查远端 `~/.local/bin/codex`、PATH、版本、login status、现有代理启动器。非交互 shell 找不到 codex 时先试绝对路径，不能误判未安装。不要复制另一节点 auth.json；已有登录可验证后复用。
+
+## 自动识别本机代理
+
+此检测流程由 Codex 执行；keep-tunnel.ps1 仅维持已配置转发，不动态发现端口。每台电脑及每次配置/修复均执行：
+
+1. 优先验证用户显式指定的代理。否则只读检查进程和用户级 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY、Windows Internet Settings 的 ProxyEnable/ProxyServer、WinHTTP 设置。只提取协议、主机和端口，隐藏凭据，不打印完整敏感环境。
+2. 没有可用地址时，识别运行中的 Clash/Mihomo 等代理进程并关联实际 TCP 监听端口。必要时只读取活动配置中的 bind-address、port、mixed-port、socks-port，不输出订阅和控制密钥。常见端口号不构成代理证据，不扫描其他网络设备。
+3. 解析 URI 及 http/https 分项设置；区别代理协议与目标 HTTPS 协议。优先 HTTP/mixed 入口。仅 SOCKS、PAC、TUN 或需认证代理不能当成无认证 HTTP 入口；无法确认时说明并询问，不擅自更改客户端设置。
+4. 将通配监听地址 0.0.0.0/:: 转为可连接的本机回环地址再验证；保留只绑定特定地址的限制，IPv6 参数正确加括号。通过显式代理执行带超时的 HTTPS 请求，检查握手及 TLS 响应。端口监听或 HTTP 401/403 不代表账号和模型正常，必须继续完整验收。
+5. 多候选可用时优先用户指定或当前启用的系统代理；仍无法区分则询问，不猜测。把已验证的本机地址/端口填入专用 RemoteForward 的目标端。远端 Codex 始终使用远端回环入口，不混淆本机端口与远端端口。
+6. 不修改系统代理、VPN 或无关节点。后台任务不会自动跟随代理端口变化；变化后重新运行技能，更新并重启对应转发后验证。
 
 ## 首次密码认证与自动继续
 
@@ -41,7 +52,7 @@ description: Configure Linux SSH nodes for Windows Codex desktop and a local HTT
 普通桌面/VS Code SSH 别名只负责登录；另建稳定的专用转发别名（名称含 host 与 port），只有专用别名包含：
 
 ```sshconfig
-RemoteForward 127.0.0.1:17890 127.0.0.1:7897
+RemoteForward 127.0.0.1:<远端入口端口> <已验证的本机代理地址>:<已验证的本机代理端口>
 ExitOnForwardFailure yes
 ServerAliveInterval 30
 ServerAliveCountMax 3
@@ -66,6 +77,8 @@ ServerAliveCountMax 3
 - 缺少登录时引导用户完成 device auth，不代填认证弹窗，不把设备码/令牌写进长期文档。授权完成后继续验证，不重复申请授权。
 
 ## 桌面接入与验收
+
+这是技能内置的完成标准，不要求用户在安装或 SSH 消息中重复说明。所有模板占位符必须替换为实测值；若远端入口不是 17890，服务器启动器中的代理 URL 同步使用选定端口。
 
 使用可用的 list_threads/read_thread/wait_threads 等产品工具确认目标 hostId 下的桌面会话状态。工具无添加主机能力时，只要求用户在桌面选择普通 SSH 别名并打开远程会话；界面若必须指定目录，可选目标用户主目录，不引入业务项目配置。遵守当前 UI 自动化限制，不绕过限制编辑应用私有状态数据库。专用转发别名不应被选为工作主机。
 
