@@ -9,7 +9,7 @@ A Codex skill for setting up remote Linux nodes, SSH key authentication, and bac
 - 检查并配置 SSH 密钥登录。
 - 让远程节点通过 SSH 反向转发使用本机 HTTP 代理（如 Clash）。
 - 配置 Windows 后台任务：无需保持终端窗口，断线后自动重试。
-- 检查远程 Codex 安装和登录状态，并测试模型连接。
+- 检查远程 Codex 安装和登录状态，以桌面端会话成功收到回复为最终验收；不依赖任何业务项目或 Git 仓库。
 
 ## 安装
 
@@ -35,7 +35,7 @@ ssh root@192.0.2.10 -p 2222
 $setup-ssh-codex ssh root@192.0.2.10 -p 2222
 ```
 
-将示例地址和端口替换为实际节点。默认用户名为 root，本机代理端口为 7897；其他代理端口或项目目录可以一起告诉 Codex。
+将示例地址和端口替换为实际节点。默认用户名为 root，本机代理端口为 7897；如使用其他代理端口，一起告诉 Codex 即可。无需提供项目目录。
 
 ## 使用前准备
 
