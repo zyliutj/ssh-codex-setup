@@ -1,0 +1,6 @@
+interface:
+  display_name: "SSH 节点接入 Codex"
+  short_description: "从 SSH 命令配置新节点、后台代理转发并验证 Codex 桌面连接"
+  default_prompt: "使用 $setup-ssh-codex 配置这个节点：ssh root@192.0.2.10 -p 2222"
+policy:
+  allow_implicit_invocation: true
